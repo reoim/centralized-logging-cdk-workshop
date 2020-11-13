@@ -16,6 +16,7 @@ export class SecondAccountStack extends cdk.Stack {
       handler: 'sample.handler'                // file is "sample", function is "handler"
     });
     
+    // Defines a log group for API Gateway
     const apigwLogGroup = new logs.LogGroup(this, 'APIgatewayLogs', {
       logGroupName: 'APIgatewayLogs',
       retention: logs.RetentionDays.THREE_MONTHS
