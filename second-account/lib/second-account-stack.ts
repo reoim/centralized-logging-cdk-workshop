@@ -34,5 +34,12 @@ export class SecondAccountStack extends cdk.Stack {
     //Metric for the number of client-side errors captured in a given period.
     //@default - sum over 5 minutes
     const clientErrorMetric = api.metricClientError();
+    
+    // Define subscription filter for cloudwatch log.
+    const subscriptionFilter = new logs.CfnSubscriptionFilter(this, 'SubscriptionFilter', {
+      destinationArn: this.node.tryGetContext('destination'),
+      filterPattern: "",
+      logGroupName: apigwLogGroup.logGroupName
+    })
   }
 }
