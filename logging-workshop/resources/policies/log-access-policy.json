@@ -4,11 +4,9 @@
     {
       "Effect" : "Allow",
       "Principal" : {
-        "AWS" : ["073350242085"]
+        "AWS" : ["Target Account ID"]
       },
       "Action" : "logs:PutSubscriptionFilter",
-      "Resource" : "arn:aws:logs:us-east-1:741313510344:destination:CentralLogDestination"
+      "Resource" : "Log Destination ARN"
     }
   ]
-}
-
