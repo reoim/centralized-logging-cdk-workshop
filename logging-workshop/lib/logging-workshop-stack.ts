@@ -1,6 +1,9 @@
 import * as cdk from '@aws-cdk/core';
 import * as s3 from '@aws-cdk/aws-s3';
 import * as logs from '@aws-cdk/aws-logs';
+import * as log_ds from '@aws-cdk/aws-logs-destinations';
+import * as kinesis from '@aws-cdk/aws-kinesis';
+import * as firehose from '@aws-cdk/aws-kinesisfirehose';
 import * as cloudtrail from '@aws-cdk/aws-cloudtrail';
 import * as cloudwatch from '@aws-cdk/aws-cloudwatch';
 import * as cw_actions from '@aws-cdk/aws-cloudwatch-actions';
@@ -186,7 +189,86 @@ export class LoggingWorkshopStack extends cdk.Stack {
       defaultValue: 0
     });
     
-    //expose a metric from the metric filter
+    // Expose a metric from the metric filter
     const webServerMetric = webServerMetricFilter.metric();    
+  
+  
+    
+    // Create IAM role for firehose delivery stream
+    const firehoseRole = new iam.Role(this, "FirehoseRole", {
+      assumedBy: new iam.ServicePrincipal('firehose.amazonaws.com')
+    });
+    
+    // Add S3 permission to the role
+    firehoseRole.addToPolicy(new iam.PolicyStatement({
+        effect: iam.Effect.ALLOW,
+        resources: [logBucket.bucketArn, logBucket.bucketArn+'/*'],
+        actions: ['s3:AbortMultipartUpload', 's3:GetBucketLocation', 's3:GetObject', 's3:ListBucket', 's3:ListBucketMultipartUploads', 's3:PutObject']
+    }));
+    
+    // Create LogGroup for firehose
+    const firehoseLogGroup = new logs.LogGroup(this, 'FireHoseLogGroup', {
+      logGroupName: 'FireHoseLogGroup',
+      retention: logs.RetentionDays.ONE_MONTH
+    });
+    
+    firehoseLogGroup.addStream('FirehoseLog', {
+      logStreamName: 'FirehoseLog'
+    });
+    
+    // Add Log event permission to the role
+    firehoseRole.addToPolicy(new iam.PolicyStatement({
+        effect: iam.Effect.ALLOW,
+        resources: [firehoseLogGroup.logGroupArn],
+        actions: ['logs:PutLogEvents']
+    }));
+ 
+    // create firehose delivery stream
+    const firehoseDliverySteram = new firehose.CfnDeliveryStream(this, "FireHoseStream", {
+        deliveryStreamName: "FireHoseStream",
+        deliveryStreamType: "DirectPut",
+        s3DestinationConfiguration: {
+            bucketArn: logBucket.bucketArn,
+            prefix: 'AWSLogs/SecondAccount/',
+            bufferingHints: {
+                intervalInSeconds: 300,
+                sizeInMBs: 5,
+            },
+            roleArn: firehoseRole.roleArn,
+            cloudWatchLoggingOptions: {
+              enabled: true,
+              logGroupName: firehoseLogGroup.logGroupName,
+              logStreamName: 'FirehoseLog'
+            }
+        },
+    });
+  
+    // Create IAM role for log destination
+    const logDestinationRole = new iam.Role(this, "LogDestinationRole", {
+      assumedBy: new iam.ServicePrincipal('logs.amazonaws.com')
+    });
+    
+    // Add firehose permission to the role
+    logDestinationRole.addToPolicy(new iam.PolicyStatement({
+      effect: iam.Effect.ALLOW,
+      resources: ['*'],
+      actions: ['firehose:PutRecord']
+    }));
+    
+    const logPolicy = fs.readFileSync('resources/policies/log-access-policy.json', 'utf8');
+    
+    const logDestination = new logs.CfnDestination(this, 'LogDestination', {
+      destinationName: 'CentralLogDestination',
+      roleArn: logDestinationRole.roleArn,
+      targetArn: firehoseDliverySteram.attrArn,
+      destinationPolicy: logPolicy
+    });
+    
+    
+    logDestination.addDependsOn(firehoseDliverySteram);
+    
+  
+    new cdk.CfnOutput(this, 'Log destination arn', { value: logDestination.attrArn });
+
   }
 }

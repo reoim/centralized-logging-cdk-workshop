@@ -4,6 +4,6 @@
     "@aws-cdk/core:enableStackNameDuplicates": "true",
     "aws-cdk:enableDiffNoFail": "true",
     "@aws-cdk/core:stackRelativeExports": "true",
-    "email": "my-email@email.com"
+    "email": "reolee@amazon.com"
   }
 }
